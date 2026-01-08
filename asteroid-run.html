@@ -1,0 +1,2258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Asteroid Run – Runner (Left→Right)</title>
+  <style>
+    :root{
+      --bg:#070a12;
+      --panel:#0b1220cc;
+      --stroke:#1d2a44;
+      --text:#e9f0ff;
+      --muted:#9fb2d6;
+      --accent:#6ee7ff;
+      --danger:#ff5370;
+      --good:#57ffb8;
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background: radial-gradient(1000px 700px at 20% 10%, #1b0b3a 0%, transparent 55%),
+                  radial-gradient(900px 600px at 80% 30%, #0b3a2b 0%, transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      overflow:hidden;
+    }
+    .wrap{display:grid;grid-template-columns:1fr 360px;gap:14px;height:100vh;padding:14px}
+    .gameCard{
+      position:relative;border:1px solid var(--stroke);border-radius:18px;overflow:hidden;
+      background:#050812;box-shadow:0 18px 60px rgba(0,0,0,.45);min-height:520px;
+    }
+    canvas{display:block;width:100%;height:100%}
+
+    .midMsg{
+      position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
+      padding:18px 22px;border-radius:18px;background:rgba(7,10,18,.65);
+      border:1px solid rgba(160,190,255,.18);backdrop-filter:blur(10px);
+      text-align:center;min-width:340px;
+    }
+    .midMsg h1{margin:0 0 6px;font-size:44px}
+    .midMsg p{margin:0;color:var(--muted);font-weight:650}
+
+    .panel{
+      border:1px solid var(--stroke);border-radius:18px;
+      background:linear-gradient(180deg, rgba(10,16,32,.85) 0%, rgba(7,10,18,.92) 100%);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);padding:14px;overflow:auto;
+    }
+    .titleRow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .titleRow h2{margin:0;font-size:20px}
+    .pill{
+      padding:6px 10px;border-radius:999px;border:1px solid rgba(160,190,255,.18);
+      background:rgba(255,255,255,.03);color:var(--muted);font-weight:900;font-size:12px;
+      white-space:nowrap;
+    }
+    .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 12px}
+    button{
+      border:1px solid rgba(160,190,255,.18);
+      background:linear-gradient(180deg, rgba(18,38,74,.9), rgba(11,19,38,.9));
+      color:var(--text);padding:12px;border-radius:14px;font-weight:950;cursor:pointer;
+    }
+    button:hover{filter:brightness(1.08)}
+    .dangerBtn{background:linear-gradient(180deg, rgba(90,20,35,.95), rgba(40,10,18,.95));border-color:rgba(255,83,112,.25)}
+    .fullBtn{grid-column:1/3}
+
+    .hint{color:var(--muted);font-weight:650;font-size:13px;line-height:1.35;margin:10px 0 12px}
+
+    .section{
+      margin-top:12px;
+      padding:12px 12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(160,190,255,.12);
+    }
+    .sectionTitle{
+      display:flex;align-items:center;justify-content:space-between;
+      font-weight:950;font-size:13px;color:var(--text);margin-bottom:8px;
+    }
+    .row{display:flex;justify-content:space-between;color:var(--muted);font-weight:850;margin:6px 0}
+    .row b{color:var(--text)}
+    .pBtn{
+      padding:12px;border-radius:14px;background:rgba(9,14,28,.55);
+      border:1px solid rgba(120,160,255,.15);backdrop-filter:blur(6px);
+      display:flex;justify-content:space-between;align-items:center;font-weight:950;user-select:none;
+      margin:8px 0;
+    }
+    .pBtn .k{color:var(--muted);font-weight:900}
+    .pBtn .c{color:var(--accent);font-weight:950}
+    .pBtn.dim{opacity:.55}
+
+    .assetStatus{
+      margin-top:12px;padding:10px 12px;border-radius:14px;
+      border:1px solid rgba(160,190,255,.12);background:rgba(255,255,255,.03);
+      color:var(--muted);font-weight:800;font-size:12px;line-height:1.5;
+      word-break:break-word;
+    }
+    .ok{color:var(--good);font-weight:950}
+    .bad{color:var(--danger);font-weight:950}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="gameCard" id="gameCard">
+      <canvas id="c"></canvas>
+
+      <div class="midMsg" id="midMsg" style="display:none">
+        <h1 id="midTitle">Run Over</h1>
+        <p id="midSub">Press Start Run to try again</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="titleRow">
+        <h2>Asteroid Run</h2>
+        <span class="pill" id="statePill">OVER</span>
+      </div>
+
+      <div class="titleRow" style="margin-top:6px;gap:8px;flex-wrap:wrap">
+        <span class="pill" id="ticketsPill">Tickets: 4</span>
+        <span class="pill">Cost: 1 / run</span>
+        <span class="pill" id="coinsPill">Coins: 15</span>
+      </div>
+
+      <div class="btnRow">
+        <button id="startBtn">Start Run</button>
+        <button id="resetBtn" class="dangerBtn">Reset</button>
+        <button id="fsBtn" class="fullBtn">Fullscreen</button>
+      </div>
+
+      <div class="hint">
+        <b>Movement:</b> Arrow keys (Up/Down/Left/Right). <br/>
+        <b>Powerups:</b> F = Rockets, S = Shield, D = Drone. <br/>
+        <b>Burst:</b> Shift = quick dodge.
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">
+          <span>Sector</span>
+          <span class="pill">SECTOR <span id="sectorN">1</span></span>
+        </div>
+        <div class="row">
+          <span id="sectorSub">Next speed-up in: 30s</span>
+          <b id="tSector">0.0s</b>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">
+          <span>Powerups</span>
+          <span class="pill">Inventory</span>
+        </div>
+
+        <div class="pBtn"><span>BURST</span><span class="k">Shift</span></div>
+        <div class="pBtn dim" id="btnMiss"><span>ROCKETS</span><span class="k">F · <span class="c" id="cntMiss">0</span></span></div>
+        <div class="pBtn dim" id="btnShield"><span>SHIELD</span><span class="k">S · <span class="c" id="cntShield">0</span></span></div>
+        <div class="pBtn dim" id="btnDrone"><span>DRONES</span><span class="k">D · <span class="c" id="cntDrone">0</span></span></div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">
+          <span>Timers</span>
+          <span class="pill">Active</span>
+        </div>
+        <div class="row"><span>Rockets (F)</span><b id="tMiss">0.0s</b></div>
+        <div class="row"><span>Shield (S)</span><b id="tShield">0.0s</b></div>
+        <div class="row"><span>Drones (D)</span><b id="tDrone">0.0s</b></div>
+      </div>
+
+      <div class="assetStatus" id="assetStatus">Asset status loading...</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // roundRect polyfill
+  // ---------------------------
+  function rrPath(ctx, x, y, w, h, r){
+    r = Math.max(0, Math.min(r, Math.min(w,h)/2));
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    ctx.closePath();
+  }
+
+  // ======= YOUR FILENAMES =======
+  // ✅ auto-try both "" and "assets/" so your images load either way
+  const ASSET_BASES = ["", "assets/"];
+  function withBase(base, path){ return base + path; }
+
+  // IMPORTANT:
+  // Put your boss image in the same folder and name it exactly "boss.png"
+  const ASSETS = {
+    ship: "ship.png",
+    enemy: "enemy.png",
+    meteors: ["meteor1.png","meteor2.png","meteor3.png","meteor4.png","meteor5.png","meteor6.png"],
+    pickupMiss: "plasma.png",
+    pickupShield: "shield.png",
+    pickupDrone: "drone.png",
+    droneCompanion: "drone_companion.png",
+    turretBase: "turret_base.png",
+    turretGun:  "turret_gun.png",
+    turretDead: "turret_destroyed.png",
+    boss: "boss.png"
+  };
+
+  // ======= TUNING =======
+  // (your 20% smaller setup stays the same)
+  const SHIP_SCALE_BASE = 0.1375;
+
+  const PICKUP_SIZE_OF_SHIP = 0.50 * 1.25;
+  const ENEMY_SIZE_MATCH_SHIP = true;
+
+  const AUTO_FIRE_INTERVAL = 0.28;
+  const ROCKETS_DURATION = 7.0;
+
+  const ENEMY_START_SECTOR = 2;
+  const ENEMY_SPAWN_MIN = 1.6;
+  const ENEMY_SPAWN_MAX = 2.4;
+  const ENEMY_FIRE_MIN = 1.0;
+  const ENEMY_FIRE_MAX = 1.7;
+
+  const SPECIAL_TTL = 10.0;
+  const SPECIAL_BURST_DURATION = 3.0;
+  const SPECIAL_FIRE_INTERVAL = 0.07;
+  const HOMING_TURN = 10.0;
+  const HOMING_SPEED = 980;
+
+  const METEOR_BASE_SCALES = [0.34, 0.30, 0.28, 0.32, 0.26, 0.29];
+  const DROP_CHANCE = 0.084;
+
+  const MAGNET_RANGE = 420;
+  const MAGNET_FORCE = 1700;
+  const MAGNET_DAMP = 0.992;
+
+  const TURRET_START_SECTOR = 2;
+  const TURRET_SPAWN_MIN = 6.0;
+  const TURRET_SPAWN_MAX = 9.0;
+
+  const TURRET_EDGE_PAD = 72;
+  const TURRET_EDGE_JITTER = 28;
+
+  const DRONE_DURATION = 5.0;
+  const DRONE_COUNT = 2;
+
+  const DRONE_CRUISE_MIN = 460;
+  const DRONE_CRUISE_MAX = 860;
+  const DRONE_TURN_RATE  = 6.2;
+  const DRONE_LOOKAHEAD  = 0.22;
+  const DRONE_ATTACK_RANGE = 54;
+  const DRONE_HEADON_CONE = Math.cos(26 * Math.PI/180);
+
+  const DRONE_VISUAL_SCALE_MULT = 1.25;
+
+  // Special missiles are ORBS, 50% size of normal missiles
+  const ORB_RADIUS_MULT = 0.50;
+  const ORB_TRAIL_ALPHA = 0.14;
+
+  // ======= BOSS (end of sector 5 => sector becomes 6) =======
+  const BOSS_START_SECTOR = 6;
+  const BOSS_HP = 220;
+  const BOSS_ENTRY_SPEED = 320;
+  const BOSS_IDLE_DRIFT = 24;
+  const BOSS_ARM_FIRE_INTERVAL = 0.65; // both arms fire together
+  const BOSS_STAR_INTERVAL = 3.0;      // star shot from head
+  const BOSS_BOLT_SPEED = 520;
+  const BOSS_STAR_SPEED = 620;
+
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  const ui = {
+    statePill: document.getElementById("statePill"),
+    ticketsPill: document.getElementById("ticketsPill"),
+    coinsPill: document.getElementById("coinsPill"),
+    sectorN: document.getElementById("sectorN"),
+    sectorSub: document.getElementById("sectorSub"),
+    midMsg: document.getElementById("midMsg"),
+    midTitle: document.getElementById("midTitle"),
+    midSub: document.getElementById("midSub"),
+    tSector: document.getElementById("tSector"),
+    tMiss: document.getElementById("tMiss"),
+    tShield: document.getElementById("tShield"),
+    tDrone: document.getElementById("tDrone"),
+    cntMiss: document.getElementById("cntMiss"),
+    cntShield: document.getElementById("cntShield"),
+    cntDrone: document.getElementById("cntDrone"),
+    btnMiss: document.getElementById("btnMiss"),
+    btnShield: document.getElementById("btnShield"),
+    btnDrone: document.getElementById("btnDrone"),
+    assetStatus: document.getElementById("assetStatus")
+  };
+
+  // ======= HiDPI resize =======
+  let W=0, H=0;
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width  = Math.floor(rect.width  * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = rect.width; H = rect.height;
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ======= Load images =======
+  function loadImageTryAll(relPath){
+    return new Promise((resolve) => {
+      let idx = 0;
+      const tried = [];
+
+      const attempt = () => {
+        const base = ASSET_BASES[idx++];
+        const src = withBase(base, relPath);
+        tried.push(src);
+
+        const img = new Image();
+        img.onload = () => resolve({ok:true, img, src, tried});
+        img.onerror = () => {
+          if(idx < ASSET_BASES.length) attempt();
+          else resolve({ok:false, img:null, src:null, tried});
+        };
+        img.src = src;
+      };
+      attempt();
+    });
+  }
+
+  let IMG = {};
+  async function loadAll(){
+    const list = [
+      ["ship", ASSETS.ship],
+      ["enemy", ASSETS.enemy],
+      ["pickupMiss", ASSETS.pickupMiss],
+      ["pickupShield", ASSETS.pickupShield],
+      ["pickupDrone", ASSETS.pickupDrone],
+      ["droneCompanion", ASSETS.droneCompanion],
+      ["turretBase", ASSETS.turretBase],
+      ["turretGun",  ASSETS.turretGun],
+      ["turretDead", ASSETS.turretDead],
+      ["boss", ASSETS.boss],
+      ...ASSETS.meteors.map((m,i)=>["meteor"+(i+1), m]),
+    ];
+
+    const results = await Promise.all(list.map(([k,src]) => loadImageTryAll(src).then(r => ({k, ...r}))));
+
+    const status = {};
+    const triedMap = {};
+    results.forEach(r => {
+      status[r.k] = r.ok;
+      triedMap[r.k] = r.tried;
+      if(r.ok) IMG[r.k] = r.img;
+    });
+
+    const must = ["ship","enemy","pickupMiss","pickupShield","pickupDrone","meteor1","meteor2","meteor3","meteor4","meteor5","meteor6"];
+    const lines = [];
+    must.forEach(k => {
+      const ok = status[k];
+      const tried = (triedMap[k] || []).join(" | ");
+      lines.push(`${k}: ${ok ? '<span class="ok">ok</span>' : '<span class="bad">missing</span>'}${ok ? "" : `<br/>${tried}`}`);
+    });
+
+    const turretOk = ["turretBase","turretGun","turretDead"].every(k => status[k]);
+    lines.push(`turret pack: ${turretOk ? '<span class="ok">ok</span>' : '<span class="bad">missing (fallback turret)</span>'}`);
+
+    const droneOk = !!status.droneCompanion;
+    lines.push(`drone companion art: ${droneOk ? '<span class="ok">ok</span>' : '<span class="bad">missing (uses capsule drone art)</span>'}`);
+
+    lines.push(`boss.png: ${status.boss ? '<span class="ok">ok</span>' : '<span class="bad">missing</span>'}`);
+
+    ui.assetStatus.innerHTML = lines.join("<br/>");
+  }
+
+  // ======= Input =======
+  const keys = new Set();
+  window.addEventListener("keydown", (e) => {
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Shift","f","F","s","S","d","D"].includes(e.key)) e.preventDefault();
+    keys.add(e.key);
+    if(e.key === "F" || e.key === "f") tryActivate("miss");
+    if(e.key === "S" || e.key === "s") tryActivate("shield");
+    if(e.key === "D" || e.key === "d") tryActivate("drone");
+  }, {passive:false});
+  window.addEventListener("keyup", (e) => keys.delete(e.key));
+
+  // ======= UI Buttons =======
+  let tickets = 4;
+  let coins = 15;
+  const inv = { miss: 0, shield: 0, drone: 0 };
+
+  const startBtn = document.getElementById("startBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const fsBtn = document.getElementById("fsBtn");
+
+  fsBtn.onclick = async () => {
+    const card = document.getElementById("gameCard");
+    try{
+      if(!document.fullscreenElement) await card.requestFullscreen();
+      else await document.exitFullscreen();
+      setTimeout(resizeCanvas, 150);
+    }catch(_){}
+  };
+
+  resetBtn.onclick = () => {
+    tickets = 4; coins = 15;
+    inv.miss = 0; inv.shield = 0; inv.drone = 0;
+    endRun("OVER", "Press Start Run to play.");
+    refreshUI();
+  };
+
+  startBtn.onclick = () => {
+    if(state !== "PLAYING"){
+      if(tickets <= 0){ flashMsg("No tickets", "Reset to get tickets back."); return; }
+      tickets -= 1;
+      startRun();
+    }
+  };
+
+  function refreshUI(){
+    ui.ticketsPill.textContent = `Tickets: ${tickets}`;
+    ui.coinsPill.textContent = `Coins: ${coins}`;
+    ui.cntMiss.textContent = inv.miss;
+    ui.cntShield.textContent = inv.shield;
+    ui.cntDrone.textContent = inv.drone;
+    ui.btnMiss.classList.toggle("dim", inv.miss<=0);
+    ui.btnShield.classList.toggle("dim", inv.shield<=0);
+    ui.btnDrone.classList.toggle("dim", inv.drone<=0);
+  }
+
+  // ======= Helpers =======
+  const TAU = Math.PI*2;
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+
+  function wrapAngle(a){
+    while(a > Math.PI) a -= TAU;
+    while(a < -Math.PI) a += TAU;
+    return a;
+  }
+  function angTo(ax, ay, bx, by){ return Math.atan2(by - ay, bx - ax); }
+  function dot(ax, ay, bx, by){ return ax*bx + ay*by; }
+
+  function drawSprite(img, x, y, scale=1, rot=0, alpha=1){
+    if(!img) return;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const dw = w * scale;
+    const dh = h * scale;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.drawImage(img, -dw/2, -dh/2, dw, dh);
+    ctx.restore();
+  }
+
+  function spriteHeight(img, scale){
+    if(!img) return 0;
+    const h = img.naturalHeight || img.height;
+    return h * scale;
+  }
+  function scaleToHeight(img, targetH){
+    if(!img) return 1;
+    const h = img.naturalHeight || img.height;
+    return targetH / h;
+  }
+
+  // ======= Missile drawing =======
+  function drawMissile(x, y, angle=0, len=22, thickness=6){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    ctx.globalAlpha = 0.25;
+    const tg = ctx.createLinearGradient(-len*1.8, 0, 0, 0);
+    tg.addColorStop(0, "rgba(255,150,60,0)");
+    tg.addColorStop(1, "rgba(255,150,60,1)");
+    ctx.strokeStyle = tg;
+    ctx.lineWidth = thickness+3;
+    ctx.beginPath();
+    ctx.moveTo(-len*1.8, 0);
+    ctx.lineTo(-len*0.25, 0);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(235,245,255,0.96)";
+    ctx.strokeStyle = "rgba(80,140,255,0.55)";
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.moveTo(-len*0.55, -thickness*0.55);
+    ctx.lineTo(len*0.50, -thickness*0.55);
+    ctx.quadraticCurveTo(len*0.80, 0, len*0.50, thickness*0.55);
+    ctx.lineTo(-len*0.55, thickness*0.55);
+    ctx.quadraticCurveTo(-len*0.72, 0, -len*0.55, -thickness*0.55);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,210,120,0.95)";
+    ctx.beginPath();
+    ctx.moveTo(len*0.47, -thickness*0.45);
+    ctx.lineTo(len*0.95, 0);
+    ctx.lineTo(len*0.47, thickness*0.45);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.globalAlpha = 0.95;
+    const fg = ctx.createRadialGradient(-len*0.65, 0, 1, -len*0.95, 0, thickness*2.4);
+    fg.addColorStop(0, "rgba(255,245,200,1)");
+    fg.addColorStop(0.35, "rgba(255,160,60,0.95)");
+    fg.addColorStop(1, "rgba(255,80,60,0)");
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.ellipse(-len*0.95, 0, thickness*2.1, thickness*1.2, 0, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawOrb(x, y, r){
+    ctx.save();
+    const g = ctx.createRadialGradient(x - r*0.25, y - r*0.25, 1, x, y, r*2.4);
+    g.addColorStop(0, "rgba(255,255,255,0.95)");
+    g.addColorStop(0.25, "rgba(110,231,255,0.75)");
+    g.addColorStop(0.55, "rgba(255,200,120,0.35)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r*2.1, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "rgba(235,245,255,0.92)";
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = "rgba(110,231,255,0.75)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(x, y, r*1.08, 0, TAU);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // ======= Turret drawing =======
+  function drawTurretSprite(t){
+    const base = IMG.turretBase;
+    const gun  = IMG.turretGun;
+
+    if(!base || !gun){
+      drawTurretFallback(t);
+      return;
+    }
+
+    const desiredBaseW = t.r * 2.9;
+    const s = desiredBaseW / (base.naturalWidth || base.width);
+
+    drawSprite(base, t.x, t.y, s, 0, 1);
+
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(t.aim);
+
+    const kick = (t.flash && t.flash > 0) ? (1 - t.flash/0.08) : 0;
+    const recoil = kick * (9*s);
+
+    const gw = (gun.naturalWidth || gun.width) * s;
+    const gh = (gun.naturalHeight || gun.height) * s;
+
+    const pivotX = gw * 0.28;
+    const pivotY = gh * 0.50;
+
+    const attachX = t.r * 0.30;
+    const attachY = 0;
+
+    ctx.globalAlpha = 1;
+    ctx.drawImage(gun, attachX - pivotX - recoil, attachY - pivotY, gw, gh);
+
+    if(t.flash && t.flash > 0){
+      ctx.globalAlpha = Math.min(1, t.flash/0.08);
+      const mx = attachX + gw*0.62 - recoil;
+      const rg = ctx.createRadialGradient(mx, 0, 1, mx, 0, 34*s);
+      rg.addColorStop(0, "rgba(255,255,255,0.95)");
+      rg.addColorStop(0.25, "rgba(255,210,140,0.85)");
+      rg.addColorStop(1, "rgba(255,80,120,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(mx, 0, 30*s, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawTurretFallback(t){
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "rgba(16,26,52,0.95)";
+    ctx.strokeStyle = "rgba(120,170,255,0.22)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r*0.96, 0, TAU);
+    ctx.fill(); ctx.stroke();
+
+    ctx.translate(t.x, t.y);
+    ctx.rotate(t.aim);
+    ctx.fillStyle = "rgba(235,245,255,0.92)";
+    rrPath(ctx, t.r*0.10, -t.r*0.14, t.r*1.35, t.r*0.28, 10);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBolt(b){
+    const speed = Math.hypot(b.vx, b.vy);
+    const tail = Math.max(18, Math.min(42, speed*0.06));
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.ang);
+
+    ctx.globalAlpha = 0.55;
+    let g = ctx.createLinearGradient(-tail, 0, 10, 0);
+    g.addColorStop(0, "rgba(255,80,140,0)");
+    g.addColorStop(0.55, "rgba(255,80,140,0.65)");
+    g.addColorStop(1, "rgba(255,210,230,0.35)");
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(-tail, 0);
+    ctx.lineTo(10, 0);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.95;
+    g = ctx.createLinearGradient(-tail*0.65, 0, 10, 0);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.45, "rgba(255,230,245,0.95)");
+    g.addColorStop(1, "rgba(255,255,255,1)");
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(-tail*0.65, 0);
+    ctx.lineTo(12, 0);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(12, 0, 2.2, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawEnemyShot(b){
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.ang);
+
+    ctx.globalAlpha = 0.35;
+    let g = ctx.createLinearGradient(-26,0, 8,0);
+    g.addColorStop(0, "rgba(120,255,170,0)");
+    g.addColorStop(1, "rgba(120,255,170,1)");
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(-26,0);
+    ctx.lineTo(8,0);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = "rgba(240,255,245,0.95)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-12,0);
+    ctx.lineTo(12,0);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawSpecial(s){
+    const t = performance.now();
+    const pulse = 0.55 + 0.45*Math.sin(t/160 + s.seed);
+    ctx.save();
+
+    const rg = ctx.createRadialGradient(s.x,s.y, 4, s.x,s.y, 68 + pulse*10);
+    rg.addColorStop(0, "rgba(255,255,255,0.20)");
+    rg.addColorStop(0.25, "rgba(110,231,255,0.25)");
+    rg.addColorStop(0.55, "rgba(255,180,90,0.12)");
+    rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(s.x,s.y, 70 + pulse*10, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = "rgba(255,220,140,0.9)";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(s.x,s.y, 26 + pulse*3, 0, TAU);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(18,30,60,0.92)";
+    ctx.beginPath();
+    ctx.arc(s.x,s.y, 14, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "rgba(255,220,140,0.95)";
+    ctx.beginPath();
+    ctx.arc(s.x + 6, s.y - 5, 3.2, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // ======= BOSS STAR SHOT (from head) =======
+  function drawStarShot(s){
+    const spikes = 5;
+    const outer = s.r;
+    const inner = s.r * 0.45;
+
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.ang + performance.now()/450);
+
+    ctx.globalAlpha = 0.35;
+    const g = ctx.createRadialGradient(0,0, 2, 0,0, outer*3.2);
+    g.addColorStop(0, "rgba(255,255,255,0.9)");
+    g.addColorStop(0.25, "rgba(255,120,200,0.55)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0,0, outer*3.0, 0, TAU); ctx.fill();
+
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "rgba(255,245,255,0.95)";
+    ctx.strokeStyle = "rgba(255,120,200,0.75)";
+    ctx.lineWidth = 1.6;
+
+    ctx.beginPath();
+    for(let i=0;i<spikes*2;i++){
+      const a = (i*Math.PI)/spikes;
+      const r = (i%2===0) ? outer : inner;
+      const x = Math.cos(a)*r;
+      const y = Math.sin(a)*r;
+      if(i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // ======= Background depth =======
+  const starLayers = [
+    { n: 180, spd: 0.22, len: 2.0, size:[0.6,1.2], alpha:[0.08,0.22] },
+    { n: 140, spd: 0.50, len: 3.0, size:[0.8,1.6], alpha:[0.12,0.40] },
+    { n: 110, spd: 0.90, len: 4.5, size:[1.0,2.2], alpha:[0.18,0.70] },
+  ];
+
+  const stars = starLayers.map(L => Array.from({length:L.n}, () => ({
+    x: Math.random(), y: Math.random(),
+    s: rand(L.size[0], L.size[1]),
+    a: rand(L.alpha[0], L.alpha[1])
+  })));
+  let bgOff = 0;
+
+  let nebulaPuffs = [];
+  function initNebula(){
+    nebulaPuffs = Array.from({length:18}, () => ({
+      x: rand(0,W), y: rand(0,H),
+      r: rand(220, 520),
+      vx: rand(-8, -24),
+      vy: rand(-7, 7),
+      a: rand(0.08, 0.16)
+    }));
+  }
+
+  let megaStruct = null;
+  function spawnMegaStruct(){
+    megaStruct = {
+      x: W + rand(520, 980),
+      y: rand(H*0.20, H*0.80),
+      r: rand(Math.min(W,H)*0.32, Math.min(W,H)*0.48),
+      spd: rand(6, 14),
+      a: rand(0.08, 0.14),
+      tilt: rand(-0.45, 0.45),
+      seed: Math.random()*10
+    };
+  }
+
+  const saturn = { x:0, y:0, r:0, spd:10, a:0.18, tilt:-0.18, seed:2.1 };
+  function placeSaturn(){
+    saturn.x = W + Math.min(W,H)*0.55;
+    saturn.y = H*0.33;
+    saturn.r = Math.min(W,H)*0.34;
+  }
+
+  function drawMegaStructure(dt){
+    if(!megaStruct) spawnMegaStruct();
+    megaStruct.x -= (megaStruct.spd * dt) + (worldSpeed * dt * 0.012);
+
+    if(megaStruct.x < -megaStruct.r*2.3){
+      spawnMegaStruct();
+      megaStruct.x = W + rand(520, 980);
+    }
+
+    const m = megaStruct;
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.tilt);
+
+    ctx.globalAlpha = m.a * 0.55;
+    let g = ctx.createRadialGradient(0,0, m.r*0.25, 0,0, m.r*1.45);
+    g.addColorStop(0, "rgba(120,80,255,0.10)");
+    g.addColorStop(0.45, "rgba(60,255,190,0.08)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0,0, m.r*1.45, 0, TAU); ctx.fill();
+
+    ctx.globalAlpha = m.a * 1.1;
+    ctx.strokeStyle = "rgba(190,210,255,0.22)";
+    ctx.lineWidth = Math.max(2, m.r*0.025);
+    ctx.beginPath();
+    ctx.ellipse(0,0, m.r*1.08, m.r*0.52, 0, 0, TAU);
+    ctx.stroke();
+
+    ctx.globalAlpha = m.a * 0.85;
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = Math.max(1.5, m.r*0.016);
+    ctx.beginPath();
+    ctx.ellipse(0,0, m.r*0.78, m.r*0.38, 0, 0, TAU);
+    ctx.stroke();
+
+    ctx.globalAlpha = m.a * 1.25;
+    g = ctx.createRadialGradient(0,0, 2, 0,0, m.r*0.28);
+    g.addColorStop(0, "rgba(255,255,255,0.18)");
+    g.addColorStop(0.5, "rgba(20,30,60,0.65)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0,0, m.r*0.28, 0, TAU); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawSaturn(dt){
+    saturn.x -= (saturn.spd * dt) + (worldSpeed * dt * 0.010);
+    if(saturn.x < -saturn.r*2.0){
+      placeSaturn();
+      saturn.x = W + Math.min(W,H)*0.55;
+      saturn.y = rand(H*0.22, H*0.55);
+      saturn.tilt = rand(-0.35, 0.35);
+    }
+
+    const m = saturn;
+    const t = performance.now()/1000;
+    const pulse = 0.5 + 0.5*Math.sin(t*0.30 + m.seed);
+
+    ctx.save();
+    ctx.translate(m.x, m.y);
+
+    ctx.globalAlpha = m.a * (0.65 + pulse*0.10);
+    let g = ctx.createRadialGradient(0,0, m.r*0.15, 0,0, m.r*1.45);
+    g.addColorStop(0, "rgba(110,231,255,0.14)");
+    g.addColorStop(0.40, "rgba(255,170,120,0.09)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0,0, m.r*1.45, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = m.a * 1.35;
+    g = ctx.createRadialGradient(-m.r*0.30, -m.r*0.22, m.r*0.20, 0,0, m.r*1.05);
+    g.addColorStop(0, "rgba(18,26,58,0.95)");
+    g.addColorStop(0.55, "rgba(8,12,26,0.98)");
+    g.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0,0, m.r, 0, TAU);
+    ctx.fill();
+
+    const ringR1 = m.r*1.10;
+    const ringR2 = m.r*1.88;
+
+    const drawRings = (front=false) => {
+      ctx.save();
+      ctx.rotate(m.tilt);
+
+      const rg = ctx.createRadialGradient(0,0, ringR1, 0,0, ringR2);
+      rg.addColorStop(0.00, "rgba(0,0,0,0)");
+      rg.addColorStop(0.08, "rgba(255,210,140,0.22)");
+      rg.addColorStop(0.26, "rgba(110,231,255,0.20)");
+      rg.addColorStop(0.55, "rgba(255,140,180,0.14)");
+      rg.addColorStop(0.78, "rgba(160,190,255,0.12)");
+      rg.addColorStop(1.00, "rgba(0,0,0,0)");
+
+      ctx.globalAlpha = m.a * (front ? 0.95 : 0.70);
+      ctx.fillStyle = rg;
+
+      ctx.beginPath();
+      if(front){
+        ctx.rect(-ringR2, 0, ringR2*2, ringR2);
+      }else{
+        ctx.rect(-ringR2, -ringR2, ringR2*2, ringR2);
+      }
+      ctx.clip();
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, ringR2, ringR2*0.42, 0, 0, TAU);
+      ctx.ellipse(0, 0, ringR1, ringR1*0.42, 0, 0, TAU, true);
+      ctx.fill("evenodd");
+
+      ctx.globalAlpha = m.a * (front ? 0.34 : 0.26);
+      ctx.strokeStyle = "rgba(255,255,255,0.24)";
+      ctx.lineWidth = 1;
+      for(let k=0;k<14;k++){
+        const rr = ringR1 + (k/14)*(ringR2-ringR1);
+        ctx.beginPath();
+        ctx.ellipse(0,0, rr, rr*0.42, 0, 0, TAU);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    };
+
+    drawRings(false);
+    drawRings(true);
+
+    ctx.restore();
+  }
+
+  function drawBackground(dt){
+    bgOff += dt * worldSpeed;
+
+    ctx.fillStyle = "#040712";
+    ctx.fillRect(0,0,W,H);
+
+    drawMegaStructure(dt);
+    drawSaturn(dt);
+
+    if(nebulaPuffs.length===0) initNebula();
+    for(const n of nebulaPuffs){
+      n.x += n.vx*dt; n.y += n.vy*dt;
+      if(n.x < -n.r*1.2){ n.x = W + n.r*1.2; n.y = rand(0,H); }
+      if(n.y < -n.r) n.y = H + n.r;
+      if(n.y > H + n.r) n.y = -n.r;
+
+      const g = ctx.createRadialGradient(n.x,n.y, 0, n.x,n.y, n.r);
+      g.addColorStop(0, `rgba(120,80,255,${n.a})`);
+      g.addColorStop(0.50, `rgba(60,255,190,${n.a*0.75})`);
+      g.addColorStop(0.80, `rgba(255,120,160,${n.a*0.35})`);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    for(let li=0; li<starLayers.length; li++){
+      const L = starLayers[li];
+      const layerOff = bgOff * L.spd;
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,1)";
+      for(const st of stars[li]){
+        let x = (st.x * W - layerOff) % (W + 520);
+        if(x < -260) x += (W + 520);
+        const y = st.y * H;
+        ctx.globalAlpha = st.a;
+        ctx.fillRect(x, y, 2, 2);
+        ctx.globalAlpha = st.a * 0.55;
+        ctx.fillRect(x+2, y, Math.max(1.5, L.len*0.55), 1);
+      }
+      ctx.restore();
+    }
+
+    ctx.save();
+    const vg = ctx.createRadialGradient(W*0.5, H*0.5, Math.min(W,H)*0.1, W*0.5, H*0.5, Math.max(W,H)*0.7);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.40)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  // ======= State =======
+  let state = "OVER";
+  let sector = 1, sectorTime = 0, nextSpeedUp = 30;
+  let worldSpeed = 240;
+
+  let missT=0, shieldT=0, droneT=0;
+  let specialT = 0;
+  let specialCd = 0;
+
+  let shipScale = SHIP_SCALE_BASE;
+  let pickupScaleMiss = 0.3, pickupScaleShield = 0.3, pickupScaleDrone = 0.3;
+  let enemyScale = 0.2;
+  let droneCompScale = 0.2;
+
+  // Boss state
+  let boss = null;
+  let bossShots = []; // from arms (uses drawBolt)
+  let bossStars = []; // from head (uses drawStarShot)
+  let bossDefeated = false;
+
+  function recalcScales(){
+    if(!IMG.ship) return;
+    shipScale = SHIP_SCALE_BASE;
+    const shipH = spriteHeight(IMG.ship, shipScale);
+    const pickupTargetH = shipH * PICKUP_SIZE_OF_SHIP;
+
+    pickupScaleMiss   = scaleToHeight(IMG.pickupMiss,   pickupTargetH);
+    pickupScaleShield = scaleToHeight(IMG.pickupShield, pickupTargetH);
+    pickupScaleDrone  = scaleToHeight(IMG.pickupDrone,  pickupTargetH);
+
+    if(ENEMY_SIZE_MATCH_SHIP && IMG.enemy) enemyScale = scaleToHeight(IMG.enemy, shipH);
+
+    const droneImg = IMG.droneCompanion || IMG.pickupDrone;
+    if(droneImg){
+      const targetH = shipH * 0.65 * DRONE_VISUAL_SCALE_MULT;
+      droneCompScale = scaleToHeight(droneImg, targetH);
+    }
+
+    // boss scale based on ship height (so it feels consistent)
+    if(IMG.boss){
+      const bossTargetH = shipH * 4.2; // tweak if you want bigger/smaller
+      if(boss && boss.active){
+        boss.scale = scaleToHeight(IMG.boss, bossTargetH);
+      }
+    }
+  }
+
+  const player = { x:0, y:0, r:24, spd:560, tilt:0 };
+
+  let meteors = [];
+  let pickups = [];
+  let bullets = [];
+  let particles = [];
+  let debris = [];
+
+  let turrets = [];
+  let turretBolts = [];
+
+  let enemies = [];
+  let enemyShots = [];
+
+  let specials = [];
+  let drones = [];
+
+  function startRun(){
+    state = "PLAYING";
+    ui.statePill.textContent = "PLAYING";
+    ui.midMsg.style.display = "none";
+
+    sector = 1; sectorTime = 0; nextSpeedUp = 30;
+    worldSpeed = 240;
+    missT=0; shieldT=0; droneT=0;
+    specialT = 0; specialCd = 0;
+
+    inv.miss += 1; inv.shield += 1; inv.drone += 1;
+
+    meteors=[]; pickups=[]; bullets=[]; particles=[]; debris=[];
+    turrets=[]; turretBolts=[];
+    enemies=[]; enemyShots=[];
+    specials=[];
+    drones=[];
+
+    boss = null;
+    bossShots = [];
+    bossStars = [];
+    bossDefeated = false;
+
+    player.x = W*0.18;
+    player.y = H*0.55;
+
+    initNebula();
+    placeSaturn();
+    spawnMegaStruct();
+
+    recalcScales();
+    refreshUI();
+  }
+
+  function endRun(title, sub){
+    state = "OVER";
+    ui.statePill.textContent = "OVER";
+    ui.midTitle.textContent = title;
+    ui.midSub.textContent = sub;
+    ui.midMsg.style.display = "block";
+  }
+
+  function flashMsg(title, sub){
+    ui.midTitle.textContent = title;
+    ui.midSub.textContent = sub;
+    ui.midMsg.style.display = "block";
+    setTimeout(() => { if(state==="PLAYING") ui.midMsg.style.display="none"; }, 900);
+  }
+
+  function tryActivate(which){
+    if(state !== "PLAYING") return;
+    const bossMode = !!(boss && boss.active);
+    if(bossMode) return; // keep boss arena clean: no powerups during boss
+
+    if(which==="miss"){
+      if(inv.miss<=0 || missT>0) return;
+      inv.miss -= 1; missT = ROCKETS_DURATION; fireBurst(); refreshUI();
+    }
+    if(which==="shield"){
+      if(inv.shield<=0 || shieldT>0) return;
+      inv.shield -= 1; shieldT = 7.0; refreshUI();
+    }
+    if(which==="drone"){
+      if(inv.drone<=0 || droneT>0) return;
+      inv.drone -= 1;
+      droneT = DRONE_DURATION;
+      spawnCompanionDrones();
+      refreshUI();
+    }
+  }
+
+  // ======= Spawn =======
+  let meteorSpawn=0, turretSpawn=0, enemySpawn=0;
+
+  function spawnMeteor(){
+    const idx = Math.floor(rand(1,7));
+    const img = IMG["meteor"+idx];
+    const base = METEOR_BASE_SCALES[idx-1] ?? 0.30;
+    const scale = base * rand(0.88, 1.16);
+    const r = 12 + scale*140 + rand(0,10);
+
+    meteors.push({
+      alive:true,
+      x: W + 110,
+      y: rand(60, H-80),
+      vx: -(worldSpeed + rand(60,160)),
+      vy: rand(-55,55),
+      rot: rand(0, TAU),
+      vr: rand(-1.6, 1.6),
+      img, scale, r,
+      trail: []
+    });
+  }
+
+  function spawnTurret(){
+    const r = rand(28, 40);
+    const top = Math.random() < 0.5;
+
+    const y = top
+      ? (TURRET_EDGE_PAD + rand(-TURRET_EDGE_JITTER, TURRET_EDGE_JITTER))
+      : (H - TURRET_EDGE_PAD + rand(-TURRET_EDGE_JITTER, TURRET_EDGE_JITTER));
+
+    turrets.push({
+      alive:true,
+      x: W + 180,
+      y,
+      vx: -(worldSpeed*0.95),
+      r,
+      aim: Math.PI,
+      seed: Math.random()*10,
+      fireCd: rand(0.8, 1.8),
+      burstLeft: 0,
+      _burstTimer: 0,
+      flash: 0
+    });
+  }
+
+  function turretShotsForSector(sec){
+    if(sec >= 10) return 3;
+    if(sec >= 5) return 2;
+    return 1;
+  }
+
+  function fireTurretBolt(t){
+    const dx = player.x - t.x;
+    const dy = player.y - t.y;
+    const ang = Math.atan2(dy, dx);
+    const spd = 360 + sector*8;
+
+    turretBolts.push({
+      x: t.x + Math.cos(ang)*(t.r*1.05),
+      y: t.y + Math.sin(ang)*(t.r*1.05),
+      vx: Math.cos(ang)*spd,
+      vy: Math.sin(ang)*spd,
+      ang,
+      life: 3.0,
+      r: 10
+    });
+
+    t.flash = 0.08;
+  }
+
+  function spawnEnemy(){
+    const y = rand(90, H-120);
+    const r = 26;
+
+    enemies.push({
+      alive:true,
+      x: W + 160,
+      y,
+      baseY: y,
+      t: Math.random()*10,
+      vx: -(worldSpeed*0.85 + rand(40,120)),
+      wobAmp: rand(18, 48),
+      wobSpd: rand(1.8, 3.2),
+      r,
+      fireCd: rand(ENEMY_FIRE_MIN, ENEMY_FIRE_MAX),
+      seed: Math.random()*10
+    });
+  }
+
+  function fireEnemyShot(e){
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const ang = Math.atan2(dy, dx);
+    const spd = 420 + sector*12;
+
+    enemyShots.push({
+      x: e.x + Math.cos(ang)*24,
+      y: e.y + Math.sin(ang)*24,
+      vx: Math.cos(ang)*spd,
+      vy: Math.sin(ang)*spd,
+      ang,
+      life: 3.2,
+      r: 10
+    });
+  }
+
+  function dropSpecial(x,y){
+    specials.push({
+      alive:true,
+      x, y,
+      vx: rand(-120, -220),
+      vy: rand(-40, 40),
+      ttl: SPECIAL_TTL,
+      r: 26,
+      seed: Math.random()*10
+    });
+  }
+
+  function dropCapsule(x,y){
+    if(Math.random() > DROP_CHANCE) return;
+
+    const roll = Math.random();
+    const kind = roll < 0.40 ? "miss" : (roll < 0.70 ? "shield" : "drone");
+    const img = kind==="miss" ? IMG.pickupMiss : (kind==="shield" ? IMG.pickupShield : IMG.pickupDrone);
+
+    pickups.push({
+      alive:true,
+      kind, img,
+      x, y,
+      vx: rand(-90, -200),
+      vy: rand(-60, 60),
+      spin: rand(-2.6, 2.6),
+      ang: rand(0, TAU),
+      r: 26,
+      ttl: 12.0,
+      magnet: true
+    });
+  }
+
+  // ======= Shooting =======
+  let baseGunCd=0;
+  function makeMissile(x,y,vx){
+    const vy = rand(-35, 35);
+    return {
+      x, y,
+      vx, vy,
+      life: 2.8,
+      r: 10,
+      trail: [],
+      homing: false,
+      targetType: null,
+      targetRef: null,
+      orb: false
+    };
+  }
+
+  function fireAutoGun(dt){
+    baseGunCd -= dt;
+    if(baseGunCd > 0) return;
+    baseGunCd = AUTO_FIRE_INTERVAL;
+    bullets.push(makeMissile(player.x+20, player.y, 640));
+  }
+
+  function fireBurst(){
+    const px = player.x + 22, py = player.y;
+    for(let i=-1;i<=1;i++) bullets.push(makeMissile(px, py + i*12, 920));
+  }
+
+  function anyTargetsOnScreen(){
+    return meteors.length + enemies.length + turretBolts.length + enemyShots.length;
+  }
+
+  function acquireTarget(){
+    let best = null;
+    let bestD = Infinity;
+
+    const consider = (type, obj, x, y) => {
+      const d = dist2(player.x, player.y, x, y);
+      if(d < bestD){
+        bestD = d;
+        best = { type, obj };
+      }
+    };
+
+    for(const m of meteors) consider("meteor", m, m.x, m.y);
+    for(const e of enemies) consider("enemy", e, e.x, e.y);
+    for(const b of turretBolts) consider("turretBolt", b, b.x, b.y);
+    for(const b of enemyShots) consider("enemyShot", b, b.x, b.y);
+
+    return best;
+  }
+
+  function fireHomingMissile(){
+    if(anyTargetsOnScreen() <= 0) return;
+    const t = acquireTarget();
+    if(!t) return;
+
+    const ang = rand(-0.15, 0.15);
+    const m = makeMissile(player.x+18, player.y, HOMING_SPEED);
+    m.homing = true;
+    m.orb = true;
+
+    m.vx = Math.cos(ang) * HOMING_SPEED;
+    m.vy = Math.sin(ang) * HOMING_SPEED;
+
+    m.life = 1.6;
+    m.r = 10 * ORB_RADIUS_MULT;
+
+    m.targetType = t.type;
+    m.targetRef = t.obj;
+    bullets.push(m);
+  }
+
+  // ======= FX =======
+  function explode(x,y, n=18){
+    for(let i=0;i<n;i++){
+      particles.push({ x,y, vx:rand(-280,280), vy:rand(-280,280), life:rand(0.25,0.9), r:rand(1.5,4.2) });
+    }
+  }
+  function shatter(x,y, n=10){
+    for(let i=0;i<n;i++){
+      debris.push({ x,y, vx:rand(-220,220), vy:rand(-220,220), life:rand(0.35,1.25), ang:rand(0,TAU), spin:rand(-6,6), s:rand(2,6) });
+    }
+  }
+
+  let flash=0;
+  function doFlash(t){ flash=Math.max(flash,t); }
+  function drawFlash(dt){
+    if(flash<=0) return;
+    flash -= dt;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, flash) * 1.35;
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  // ======= Companion Drones =======
+  function spawnCompanionDrones(){
+    drones = [];
+    const offsets = [
+      {ox: 40, oy: -26},
+      {ox: 40, oy:  26}
+    ];
+    for(let i=0;i<DRONE_COUNT;i++){
+      const off = offsets[i % offsets.length];
+      drones.push({
+        x: clamp(player.x + off.ox, 40, W-40),
+        y: clamp(player.y + off.oy, 40, H-40),
+        ang: 0,
+        spd: 520,
+        turn: DRONE_TURN_RATE,
+        target: null,
+        retargetCd: 0
+      });
+    }
+  }
+
+  function pickDroneTargetAnywhere(d){
+    let best = null;
+    let bestD = Infinity;
+
+    const reserved = new Set();
+    for(const od of drones){
+      if(od !== d && od.target && od.target.alive) reserved.add(od.target);
+    }
+
+    for(const m of meteors){
+      if(!m.alive) continue;
+      if(reserved.has(m)) continue;
+      const dd = dist2(d.x, d.y, m.x, m.y);
+      if(dd < bestD){ bestD = dd; best = m; }
+    }
+
+    if(!best){
+      for(const m of meteors){
+        if(!m.alive) continue;
+        const dd = dist2(d.x, d.y, m.x, m.y);
+        if(dd < bestD){ bestD = dd; best = m; }
+      }
+    }
+    return best;
+  }
+
+  function updateDrones(dt){
+    if(droneT <= 0){
+      drones = [];
+      return;
+    }
+    if(drones.length === 0) return;
+
+    for(const d of drones){
+      d.retargetCd -= dt;
+
+      if(!d.target || !d.target.alive || d.retargetCd <= 0){
+        d.target = pickDroneTargetAnywhere(d);
+        d.retargetCd = rand(0.18, 0.32);
+      }
+
+      if(d.target && d.target.alive){
+        const tx = d.target.x + (d.target.vx || 0) * DRONE_LOOKAHEAD;
+        const ty = d.target.y + (d.target.vy || 0) * DRONE_LOOKAHEAD;
+
+        let desiredAng = angTo(d.x, d.y, tx, ty);
+        let diff = wrapAngle(desiredAng - d.ang);
+        const maxTurn = d.turn * dt;
+        diff = clamp(diff, -maxTurn, maxTurn);
+        d.ang = wrapAngle(d.ang + diff);
+
+        const dd = Math.hypot(tx - d.x, ty - d.y);
+        const desiredSpd = clamp(DRONE_CRUISE_MIN + dd*0.35, DRONE_CRUISE_MIN, DRONE_CRUISE_MAX);
+
+        const fx = Math.cos(d.ang), fy = Math.sin(d.ang);
+        d.x += fx * desiredSpd * dt;
+        d.y += fy * desiredSpd * dt;
+
+        d.x = clamp(d.x, 40, W-40);
+        d.y = clamp(d.y, 40, H-40);
+
+        const vx = tx - d.x, vy = ty - d.y;
+        const vlen = Math.hypot(vx, vy) || 1;
+        const toX = vx / vlen, toY = vy / vlen;
+        const faceDot = dot(fx, fy, toX, toY);
+
+        if(dd < DRONE_ATTACK_RANGE && faceDot > DRONE_HEADON_CONE){
+          d.target.alive = false;
+          explode(d.target.x, d.target.y, 22);
+          shatter(d.target.x, d.target.y, 10);
+          dropCapsule(d.target.x, d.target.y);
+          d.target = null;
+          d.retargetCd = rand(0.06, 0.14);
+        }
+      }
+    }
+  }
+
+  function drawDrones(){
+    if(droneT <= 0 || drones.length===0) return;
+
+    const droneImg = IMG.droneCompanion || IMG.pickupDrone;
+    if(!droneImg) return;
+
+    for(const d of drones){
+      drawSprite(droneImg, d.x, d.y, droneCompScale, d.ang + Math.PI/2, 1);
+
+      ctx.save();
+      const fx = Math.cos(d.ang), fy = Math.sin(d.ang);
+      const ex = d.x - fx*18, ey = d.y - fy*18;
+      const rg = ctx.createRadialGradient(ex,ey, 2, ex,ey, 26);
+      rg.addColorStop(0, "rgba(110,231,255,0.35)");
+      rg.addColorStop(1, "rgba(110,231,255,0)");
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(ex,ey, 26, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // ======= BOSS LOGIC (turret-like) =======
+  function startBossFight(){
+    // wipe arena: boss only
+    meteors = [];
+    enemies = [];
+    turrets = [];
+    turretBolts = [];
+    enemyShots = [];
+    pickups = [];
+    specials = [];
+    drones = [];
+    missT = 0;
+    shieldT = 0;
+    droneT = 0;
+    specialT = 0;
+    specialCd = 0;
+
+    bossShots = [];
+    bossStars = [];
+    bossDefeated = false;
+
+    boss = {
+      active: true,
+      img: IMG.boss || null,
+      x: W + 320,
+      y: H * 0.50,
+      scale: 1,
+      hp: BOSS_HP,
+      hpMax: BOSS_HP,
+      t: 0,
+      entry: true,
+      armCd: 0.35,
+      starCd: 1.0
+    };
+
+    recalcScales();
+    doFlash(0.14);
+    ui.sectorSub.textContent = "BOSS FIGHT";
+  }
+
+  // Muzzle points as percentages of boss sprite.
+  // Tweak these 3 lines if you want the shots to come from different exact pixels.
+  function bossMuzzles(){
+    if(!boss || !boss.active || !boss.img) return null;
+    const bw = (boss.img.naturalWidth || boss.img.width) * boss.scale;
+    const bh = (boss.img.naturalHeight || boss.img.height) * boss.scale;
+
+    // "two outer arms"
+    const left  = { x: boss.x - bw*0.46, y: boss.y + bh*0.05 };
+    const right = { x: boss.x + bw*0.46, y: boss.y + bh*0.05 };
+
+    // "main head"
+    const head  = { x: boss.x,          y: boss.y - bh*0.33 };
+
+    return { bw, bh, left, right, head };
+  }
+
+  function fireBossArm(from){
+    const dx = player.x - from.x;
+    const dy = player.y - from.y;
+    const ang = Math.atan2(dy, dx);
+
+    bossShots.push({
+      x: from.x, y: from.y,
+      vx: Math.cos(ang)*BOSS_BOLT_SPEED,
+      vy: Math.sin(ang)*BOSS_BOLT_SPEED,
+      ang,
+      life: 4.0,
+      r: 12
+    });
+  }
+
+  function fireBossStar(from){
+    const dx = player.x - from.x;
+    const dy = player.y - from.y;
+    const ang = Math.atan2(dy, dx);
+
+    bossStars.push({
+      x: from.x, y: from.y,
+      vx: Math.cos(ang)*BOSS_STAR_SPEED,
+      vy: Math.sin(ang)*BOSS_STAR_SPEED,
+      ang,
+      life: 5.0,
+      r: 18
+    });
+  }
+
+  function updateBoss(dt){
+    if(!boss || !boss.active) return;
+
+    boss.t += dt;
+
+    if(boss.entry){
+      boss.x -= BOSS_ENTRY_SPEED * dt;
+      const targetX = W * 0.78;
+      if(boss.x <= targetX){
+        boss.x = targetX;
+        boss.entry = false;
+      }
+    }else{
+      boss.y = (H*0.50) + Math.sin(boss.t*0.9) * BOSS_IDLE_DRIFT;
+    }
+
+    const mz = bossMuzzles();
+    if(!mz) return;
+
+    boss.armCd -= dt;
+    boss.starCd -= dt;
+
+    if(boss.armCd <= 0){
+      // BOTH arms shoot
+      fireBossArm(mz.left);
+      fireBossArm(mz.right);
+      boss.armCd = BOSS_ARM_FIRE_INTERVAL;
+    }
+
+    if(boss.starCd <= 0){
+      // Head shoots STAR bullet every 3 seconds
+      fireBossStar(mz.head);
+      boss.starCd = BOSS_STAR_INTERVAL;
+    }
+  }
+
+  function drawBoss(){
+    if(!boss || !boss.active || !boss.img) return;
+
+    drawSprite(boss.img, boss.x, boss.y, boss.scale, 0, 1);
+
+    // HP bar
+    const bw = 380, bh = 14;
+    const x = W*0.5 - bw/2;
+    const y = 18;
+    const p = clamp(boss.hp / boss.hpMax, 0, 1);
+
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    rrPath(ctx, x, y, bw, bh, 10); ctx.fill();
+
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "rgba(255,120,80,0.85)";
+    rrPath(ctx, x, y, bw*p, bh, 10); ctx.fill();
+
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 1.5;
+    rrPath(ctx, x, y, bw, bh, 10); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // ======= Loop =======
+  let last = performance.now();
+
+  function step(now){
+    const dt = Math.min(0.033, (now-last)/1000);
+    last = now;
+
+    drawBackground(dt);
+
+    if(state==="PLAYING"){
+      const bossMode = !!(boss && boss.active);
+
+      // Sector progression pauses during boss fight
+      sectorTime += dt;
+      if(!bossMode){
+        nextSpeedUp -= dt;
+
+        if(nextSpeedUp<=0){
+          sector++;
+          ui.sectorN.textContent = sector;
+
+          // trigger boss at end of sector 5 => when sector becomes 6
+          if(sector === BOSS_START_SECTOR && !bossDefeated){
+            startBossFight();
+          }else{
+            worldSpeed = Math.min(540, worldSpeed + 28);
+            nextSpeedUp = 30;
+            doFlash(0.10);
+          }
+        }
+
+        ui.sectorSub.textContent = `Next speed-up in: ${Math.ceil(nextSpeedUp)}s`;
+      }else{
+        ui.sectorSub.textContent = "BOSS FIGHT";
+        // keep nextSpeedUp "frozen" so it doesn't tick while boss is active
+      }
+
+      missT = Math.max(0, missT-dt);
+      shieldT = Math.max(0, shieldT-dt);
+      droneT = Math.max(0, droneT-dt);
+
+      specialT = Math.max(0, specialT - dt);
+      specialCd = Math.max(0, specialCd - dt);
+
+      ui.tSector.textContent = `${sectorTime.toFixed(1)}s`;
+      ui.tMiss.textContent = `${missT.toFixed(1)}s`;
+      ui.tShield.textContent = `${shieldT.toFixed(1)}s`;
+      ui.tDrone.textContent = `${droneT.toFixed(1)}s`;
+
+      // Movement
+      let mx=0,my=0;
+      if(keys.has("ArrowLeft")) mx -= 1;
+      if(keys.has("ArrowRight")) mx += 1;
+      if(keys.has("ArrowUp")) my -= 1;
+      if(keys.has("ArrowDown")) my += 1;
+
+      const bursting = keys.has("Shift");
+      const spd = player.spd * (bursting ? 1.55 : 1.0);
+
+      player.x = clamp(player.x + mx*spd*dt, 60, W-60);
+      player.y = clamp(player.y + my*spd*dt, 60, H-60);
+      player.tilt = (player.tilt*0.86) + (my*0.08) + (mx*0.14);
+
+      // Boss update
+      if(bossMode){
+        updateBoss(dt);
+      }
+
+      // Spawns (disabled during boss)
+      if(!bossMode){
+        meteorSpawn -= dt;
+        const meteorRate = Math.max(0.11, 0.52 - sector*0.03);
+        if(meteorSpawn<=0){ spawnMeteor(); meteorSpawn = meteorRate; }
+
+        turretSpawn -= dt;
+        if(sector >= TURRET_START_SECTOR && turretSpawn <= 0){
+          spawnTurret();
+          turretSpawn = rand(TURRET_SPAWN_MIN, TURRET_SPAWN_MAX);
+        }
+
+        enemySpawn -= dt;
+        if(sector >= ENEMY_START_SECTOR && enemySpawn <= 0){
+          spawnEnemy();
+          enemySpawn = rand(ENEMY_SPAWN_MIN, ENEMY_SPAWN_MAX);
+        }
+      }
+
+      // Player gun (still works in boss fight)
+      fireAutoGun(dt);
+      if(missT>0 && Math.random()<0.26){
+        bullets.push(makeMissile(player.x+22, player.y, 960));
+      }
+
+      // Special homing orbs (disabled during boss arena by design)
+      if(!bossMode && specialT > 0 && specialCd <= 0){
+        specialCd = SPECIAL_FIRE_INTERVAL;
+        fireHomingMissile();
+      }
+
+      // Update meteors
+      for(const m of meteors){
+        m.x += m.vx*dt; m.y += m.vy*dt;
+        m.rot += m.vr*dt;
+        if(m.y<40 || m.y>H-40) m.vy *= -1;
+        m.trail.push({x:m.x, y:m.y});
+        if(m.trail.length > 14) m.trail.shift();
+      }
+      meteors = meteors.filter(m => m.x > -260);
+
+      // Update turrets
+      for(const t of turrets){
+        t.x += t.vx*dt;
+        t.aim = Math.atan2(player.y - t.y, player.x - t.x);
+        t.flash = Math.max(0, (t.flash || 0) - dt);
+
+        t.fireCd -= dt;
+        if(t.fireCd <= 0){
+          t.burstLeft = turretShotsForSector(sector);
+          t.fireCd = 1.6 + rand(0.2, 0.9);
+          t._burstTimer = 0;
+        }
+        if(t.burstLeft > 0){
+          t._burstTimer -= dt;
+          if(t._burstTimer <= 0){
+            fireTurretBolt(t);
+            t.burstLeft -= 1;
+            t._burstTimer = 0.18 + rand(0, 0.09);
+          }
+        }
+      }
+      turrets = turrets.filter(t => t.x > -260 && t.alive);
+
+      // Update enemies
+      for(const e of enemies){
+        e.x += e.vx*dt;
+        e.t += dt;
+        e.y = e.baseY + Math.sin(e.t * e.wobSpd) * e.wobAmp;
+
+        e.fireCd -= dt;
+        if(e.fireCd <= 0){
+          fireEnemyShot(e);
+          e.fireCd = rand(ENEMY_FIRE_MIN, ENEMY_FIRE_MAX);
+        }
+      }
+      enemies = enemies.filter(e => e.x > -260 && e.alive);
+
+      // Update player bullets
+      for(const b of bullets){
+        b.life -= dt;
+
+        if(b.homing){
+          let tx=null, ty=null;
+          if(b.targetType==="meteor" && b.targetRef && b.targetRef.alive){ tx=b.targetRef.x; ty=b.targetRef.y; }
+          else if(b.targetType==="enemy" && b.targetRef && b.targetRef.alive){ tx=b.targetRef.x; ty=b.targetRef.y; }
+          else if(b.targetType==="turretBolt" && b.targetRef && b.targetRef.life>0){ tx=b.targetRef.x; ty=b.targetRef.y; }
+          else if(b.targetType==="enemyShot" && b.targetRef && b.targetRef.life>0){ tx=b.targetRef.x; ty=b.targetRef.y; }
+          else{
+            const nt = acquireTarget();
+            if(nt){ b.targetType = nt.type; b.targetRef = nt.obj; }
+          }
+
+          if(tx!=null){
+            const desired = Math.atan2(ty - b.y, tx - b.x);
+            let cur = Math.atan2(b.vy, b.vx);
+            let diff = desired - cur;
+            while(diff > Math.PI) diff -= TAU;
+            while(diff < -Math.PI) diff += TAU;
+            const turn = clamp(diff, -HOMING_TURN*dt, HOMING_TURN*dt);
+            cur += turn;
+            b.vx = Math.cos(cur) * HOMING_SPEED;
+            b.vy = Math.sin(cur) * HOMING_SPEED;
+          }
+        }
+
+        b.x += b.vx*dt;
+        b.y += (b.vy || 0)*dt;
+
+        b.trail.push({x:b.x, y:b.y});
+        if(b.trail.length > 10) b.trail.shift();
+      }
+      bullets = bullets.filter(b => b.life>0 && b.x < W+300 && b.y>-220 && b.y < H+220);
+
+      // Update turret bolts
+      for(const b of turretBolts){
+        b.life -= dt;
+        b.x += b.vx*dt;
+        b.y += b.vy*dt;
+      }
+      turretBolts = turretBolts.filter(b => b.life>0 && b.x>-320 && b.x<W+320 && b.y>-220 && b.y<H+220);
+
+      // Update enemy shots
+      for(const b of enemyShots){
+        b.life -= dt;
+        b.x += b.vx*dt;
+        b.y += b.vy*dt;
+      }
+      enemyShots = enemyShots.filter(b => b.life>0 && b.x>-320 && b.x<W+320 && b.y>-220 && b.y<H+220);
+
+      // Update boss shots
+      for(const b of bossShots){
+        b.life -= dt;
+        b.x += b.vx*dt;
+        b.y += b.vy*dt;
+      }
+      bossShots = bossShots.filter(b => b.life>0 && b.x>-320 && b.x<W+320 && b.y>-220 && b.y<H+220);
+
+      // Update boss stars
+      for(const s of bossStars){
+        s.life -= dt;
+        s.x += s.vx*dt;
+        s.y += s.vy*dt;
+      }
+      bossStars = bossStars.filter(s => s.life>0 && s.x>-320 && s.x<W+320 && s.y>-220 && s.y<H+220);
+
+      // Update pickups
+      for(const p of pickups){
+        p.ttl -= dt;
+        p.ang += p.spin*dt;
+        p.x += p.vx*dt;
+        p.y += p.vy*dt;
+
+        const dx = player.x - p.x;
+        const dy = player.y - p.y;
+        const d = Math.hypot(dx,dy);
+
+        if(p.magnet && d < MAGNET_RANGE){
+          const pull = (1 - d/MAGNET_RANGE);
+          const ax = (dx / Math.max(1,d)) * MAGNET_FORCE * pull;
+          const ay = (dy / Math.max(1,d)) * MAGNET_FORCE * pull;
+          p.vx += ax*dt;
+          p.vy += ay*dt;
+          p.vx *= MAGNET_DAMP;
+          p.vy *= MAGNET_DAMP;
+        }
+
+        if(p.y < 40) { p.y=40; p.vy *= -0.4; }
+        if(p.y > H-40){ p.y=H-40; p.vy *= -0.4; }
+
+        if(p.ttl <= 0) p.alive=false;
+      }
+      pickups = pickups.filter(p => p.alive);
+
+      // Update specials
+      for(const s of specials){
+        s.ttl -= dt;
+        s.x += s.vx*dt;
+        s.y += s.vy*dt;
+
+        if(s.y < 60) { s.y=60; s.vy *= -0.5; }
+        if(s.y > H-60){ s.y=H-60; s.vy *= -0.5; }
+
+        if(s.ttl <= 0) s.alive=false;
+      }
+      specials = specials.filter(s => s.alive && s.x > -260);
+
+      // FX
+      for(const pt of particles){ pt.life -= dt; pt.x += pt.vx*dt; pt.y += pt.vy*dt; }
+      particles = particles.filter(p => p.life>0);
+
+      for(const d of debris){ d.life -= dt; d.x += d.vx*dt; d.y += d.vy*dt; d.ang += d.spin*dt; }
+      debris = debris.filter(d => d.life>0);
+
+      // Drones
+      updateDrones(dt);
+
+      const shieldOn = shieldT>0;
+
+      // ======= COLLISIONS =======
+      for(const b of bullets){
+        // vs meteors
+        for(const m of meteors){
+          if(!m.alive) continue;
+          if(dist2(b.x,b.y,m.x,m.y) < (b.r + m.r)*(b.r + m.r)){
+            m.alive=false; b.life=-1;
+            explode(m.x,m.y, 26);
+            shatter(m.x,m.y, 12);
+            dropCapsule(m.x,m.y);
+            break;
+          }
+        }
+        if(b.life <= 0) continue;
+
+        // vs enemies
+        for(const e of enemies){
+          if(!e.alive) continue;
+          if(dist2(b.x,b.y,e.x,e.y) < (b.r + e.r)*(b.r + e.r)){
+            e.alive=false; b.life=-1;
+            explode(e.x,e.y, 30);
+            shatter(e.x,e.y, 12);
+            if (Math.random() < 0.25) dropSpecial(e.x, e.y);
+            dropCapsule(e.x, e.y);
+            break;
+          }
+        }
+        if(b.life <= 0) continue;
+
+        // vs turret bolts
+        for(const tb of turretBolts){
+          if(tb.life<=0) continue;
+          if(dist2(b.x,b.y,tb.x,tb.y) < (b.r + tb.r)*(b.r + tb.r)){
+            tb.life = -1; b.life=-1;
+            explode(tb.x,tb.y, 10);
+            break;
+          }
+        }
+        if(b.life <= 0) continue;
+
+        // vs enemy shots
+        for(const eb of enemyShots){
+          if(eb.life<=0) continue;
+          if(dist2(b.x,b.y,eb.x,eb.y) < (b.r + eb.r)*(b.r + eb.r)){
+            eb.life = -1; b.life=-1;
+            explode(eb.x,eb.y, 10);
+            break;
+          }
+        }
+        if(b.life <= 0) continue;
+
+        // vs boss (simple circle)
+        if(boss && boss.active){
+          const mz = bossMuzzles();
+          if(mz){
+            const br = Math.max(mz.bw, mz.bh) * 0.26; // boss hit radius
+            if(dist2(b.x,b.y,boss.x,boss.y) < (b.r + br)*(b.r + br)){
+              b.life = -1;
+              boss.hp -= (b.orb ? 2 : 1);
+              explode(b.x,b.y, 8);
+
+              if(boss.hp <= 0){
+                boss.active = false;
+                bossDefeated = true;
+
+                doFlash(0.18);
+                explode(boss.x,boss.y, 70);
+                shatter(boss.x,boss.y, 30);
+
+                // resume normal run after a short beat
+                nextSpeedUp = 30;
+                worldSpeed = Math.min(540, worldSpeed + 28);
+              }
+            }
+          }
+        }
+      }
+
+      meteors = meteors.filter(m => m.alive);
+      enemies = enemies.filter(e => e.alive);
+      turretBolts = turretBolts.filter(b => b.life>0);
+      enemyShots = enemyShots.filter(b => b.life>0);
+      bullets = bullets.filter(b => b.life>0);
+
+      // Player vs meteors
+      for(const m of meteors){
+        const rr = (player.r + m.r);
+        if(dist2(player.x,player.y,m.x,m.y) < rr*rr){
+          if(shieldOn){
+            m.alive=false;
+            explode(m.x,m.y, 32);
+            shatter(m.x,m.y, 14);
+            dropCapsule(m.x,m.y);
+          } else endRun("Run Over", "Meteor impact.");
+        }
+      }
+      meteors = meteors.filter(m => m.alive);
+
+      // Player vs enemies
+      for(const e of enemies){
+        const rr = (player.r + e.r);
+        if(dist2(player.x,player.y,e.x,e.y) < rr*rr){
+          if(shieldOn){
+            e.alive=false;
+            explode(e.x,e.y, 34);
+            shatter(e.x,e.y, 14);
+            if (Math.random() < 0.25) dropSpecial(e.x, e.y);
+            dropCapsule(e.x, e.y);
+          } else endRun("Run Over", "Enemy ship collision!");
+        }
+      }
+      enemies = enemies.filter(e => e.alive);
+
+      // Player vs turret bolts
+      for(const b of turretBolts){
+        const rr = (player.r + b.r);
+        if(dist2(player.x,player.y,b.x,b.y) < rr*rr){
+          if(shieldOn){
+            b.life = -1;
+            explode(b.x,b.y, 12);
+          } else endRun("Run Over", "Turret hit!");
+        }
+      }
+      turretBolts = turretBolts.filter(b => b.life>0);
+
+      // Player vs enemy shots
+      for(const b of enemyShots){
+        const rr = (player.r + b.r);
+        if(dist2(player.x,player.y,b.x,b.y) < rr*rr){
+          if(shieldOn){
+            b.life = -1;
+            explode(b.x,b.y, 12);
+          } else endRun("Run Over", "Enemy hit!");
+        }
+      }
+      enemyShots = enemyShots.filter(b => b.life>0);
+
+      // Player vs boss arm bolts
+      for(const b of bossShots){
+        const rr = (player.r + b.r);
+        if(dist2(player.x,player.y,b.x,b.y) < rr*rr){
+          if(shieldOn){
+            b.life = -1;
+            explode(b.x,b.y, 12);
+          } else endRun("Run Over", "Boss hit!");
+        }
+      }
+      bossShots = bossShots.filter(b => b.life>0);
+
+      // Player vs boss star bullets
+      for(const s of bossStars){
+        const rr = (player.r + s.r);
+        if(dist2(player.x,player.y,s.x,s.y) < rr*rr){
+          if(shieldOn){
+            s.life = -1;
+            explode(s.x,s.y, 14);
+          } else endRun("Run Over", "Boss star hit!");
+        }
+      }
+      bossStars = bossStars.filter(s => s.life>0);
+
+      // Pickups
+      if(!(boss && boss.active)){
+        for(const p of pickups){
+          const rr = (player.r + p.r);
+          if(dist2(player.x,player.y,p.x,p.y) < rr*rr){
+            if(p.kind==="miss") inv.miss += 1;
+            if(p.kind==="shield") inv.shield += 1;
+            if(p.kind==="drone") inv.drone += 1;
+            p.alive=false;
+            refreshUI();
+          }
+        }
+        pickups = pickups.filter(p => p.alive);
+
+        for(const s of specials){
+          const rr = (player.r + s.r);
+          if(dist2(player.x,player.y,s.x,s.y) < rr*rr){
+            s.alive=false;
+            specialT = SPECIAL_BURST_DURATION;
+            specialCd = 0;
+            doFlash(0.08);
+          }
+        }
+        specials = specials.filter(s => s.alive);
+      }else{
+        pickups = [];
+        specials = [];
+      }
+
+      recalcScales();
+    }
+
+    // ======= DRAW =======
+    for(const m of meteors){
+      ctx.save();
+      for(let i=1;i<m.trail.length;i++){
+        const a = i / m.trail.length;
+        const p0 = m.trail[i-1], p1 = m.trail[i];
+        ctx.globalAlpha = 0.10 * a;
+        ctx.strokeStyle = "rgba(255,170,90,1)";
+        ctx.lineWidth = 2.2 + a*2.2;
+        ctx.beginPath();
+        ctx.moveTo(p0.x,p0.y);
+        ctx.lineTo(p1.x,p1.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      drawSprite(m.img, m.x, m.y, m.scale, m.rot, 1);
+    }
+
+    for(const e of enemies){
+      const rot = Math.sin(performance.now()/420 + e.seed)*0.08;
+      drawSprite(IMG.enemy, e.x, e.y, enemyScale, rot, 1);
+    }
+
+    for(const t of turrets) drawTurretSprite(t);
+
+    for(const s of specials) drawSpecial(s);
+
+    for(const p of pickups){
+      const sc = (p.kind==="miss") ? pickupScaleMiss : (p.kind==="shield" ? pickupScaleShield : pickupScaleDrone);
+      const pulse = 0.55 + 0.45*Math.sin(performance.now()/180 + p.ang);
+
+      ctx.save();
+      const rg = ctx.createRadialGradient(p.x,p.y, 6, p.x,p.y, 74 + pulse*12);
+      rg.addColorStop(0, "rgba(110,231,255,0.25)");
+      rg.addColorStop(0.55, "rgba(255,180,90,0.14)");
+      rg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y, 76 + pulse*12, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      drawSprite(p.img, p.x, p.y, sc, p.ang*0.35, 1);
+    }
+
+    drawDrones();
+
+    for(const b of turretBolts) drawBolt(b);
+    for(const b of enemyShots) drawEnemyShot(b);
+
+    // boss projectiles
+    for(const b of bossShots) drawBolt(b);
+    for(const s of bossStars) drawStarShot(s);
+
+    for(const b of bullets){
+      ctx.save();
+      for(let i=1;i<b.trail.length;i++){
+        const t = b.trail[i], p = b.trail[i-1];
+        const a = i / b.trail.length;
+
+        ctx.globalAlpha = (b.orb ? ORB_TRAIL_ALPHA : 0.16) * a;
+        ctx.strokeStyle = "rgba(255,170,90,1)";
+        ctx.lineWidth = b.orb ? 1.4 : 2.0;
+        ctx.beginPath();
+        ctx.moveTo(p.x,p.y);
+        ctx.lineTo(t.x,t.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      if(b.orb){
+        drawOrb(b.x, b.y, Math.max(3.2, b.r));
+      } else {
+        const ang = Math.atan2(b.vy || 0, b.vx || 1);
+        drawMissile(b.x, b.y, ang, 22, 6);
+      }
+    }
+
+    for(const d of debris){
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, d.life) * 0.9;
+      ctx.translate(d.x,d.y);
+      ctx.rotate(d.ang);
+      ctx.fillStyle = "rgba(255,190,90,0.9)";
+      ctx.fillRect(-d.s*0.6, -d.s*0.4, d.s*1.2, d.s*0.8);
+      ctx.restore();
+    }
+
+    for(const pt of particles){
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, pt.life) * 1.1;
+      ctx.fillStyle = "rgba(255,180,80,1)";
+      ctx.beginPath();
+      ctx.arc(pt.x,pt.y,pt.r,0,TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Boss sprite + HP bar
+    if(boss && boss.active) drawBoss();
+
+    if(IMG.ship){
+      drawSprite(IMG.ship, player.x, player.y, shipScale, player.tilt*0.22, 1);
+    }
+
+    if(shieldT > 0){
+      const pulse = 0.5 + 0.5*Math.sin(performance.now()/120);
+      ctx.save();
+      ctx.globalAlpha = 0.22 + pulse*0.12;
+      const rg = ctx.createRadialGradient(player.x,player.y, 10, player.x,player.y, 84);
+      rg.addColorStop(0, "rgba(120,210,255,0.20)");
+      rg.addColorStop(1, "rgba(120,210,255,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(player.x,player.y, 86, 0, TAU);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.60;
+      ctx.strokeStyle = "rgba(120,210,255,0.95)";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.arc(player.x,player.y, 70 + pulse*2.5, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if(specialT > 0){
+      const p = 0.5 + 0.5*Math.sin(performance.now()/120);
+      ctx.save();
+      ctx.globalAlpha = 0.06 + p*0.05;
+      ctx.fillStyle = "rgba(255,220,140,1)";
+      ctx.fillRect(0,0,W,H);
+      ctx.restore();
+    }
+
+    drawFlash(dt);
+    refreshUI();
+    requestAnimationFrame(step);
+  }
+
+  function boot(){
+    resizeCanvas();
+    placeSaturn();
+    spawnMegaStruct();
+
+    loadAll().then(() => {
+      ui.midMsg.style.display = "block";
+      ui.midTitle.textContent = "Run Over";
+      ui.midSub.textContent = "Press Start Run to play.";
+      player.x = W*0.18;
+      player.y = H*0.55;
+      recalcScales();
+      refreshUI();
+      requestAnimationFrame(step);
+    });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
